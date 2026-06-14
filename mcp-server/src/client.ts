@@ -152,12 +152,19 @@ export class CataamClient {
     return this.request("POST", `/api/audit/tests/${auditProgressId}/rerun`);
   }
 
-  /** PUT /api/audit/tests/{auditProgressId}/update-due-date?newDueDate=... */
+  /**
+   * PUT /api/audit/tests/{auditProgressId}/update-due-date?newDueDate=...
+   * The backend parses the value with Instant.parse(), so it requires a full
+   * ISO-8601 instant. A bare YYYY-MM-DD is expanded to UTC midnight.
+   */
   updateDueDate(auditProgressId: number, newDueDate: string): Promise<unknown> {
+    const instant = /^\d{4}-\d{2}-\d{2}$/.test(newDueDate)
+      ? `${newDueDate}T00:00:00Z`
+      : newDueDate;
     return this.request(
       "PUT",
       `/api/audit/tests/${auditProgressId}/update-due-date`,
-      { query: { newDueDate } }
+      { query: { newDueDate: instant } }
     );
   }
 
