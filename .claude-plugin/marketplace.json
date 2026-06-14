@@ -1,5 +1,6 @@
 {
   "name": "cataam-marketplace",
+  "description": "Official marketplace for CATAAM — connect Claude to your SOC 2 / GDPR / ISO 27001 compliance program.",
   "owner": {
     "name": "CATAAM",
     "url": "https://cataam.com"

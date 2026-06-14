@@ -51,38 +51,42 @@ Optional: `CATAAM_BASE_URL` (default `https://service.cataam.com`) to target sta
 
 ## Install
 
-### As a Claude plugin (one command, for local/dev)
+### As a Claude plugin (recommended)
+
+The bundled MCP server is published to npm and launched on demand via `npx`, so there's
+nothing to build — just add the marketplace and install:
 
 ```bash
-# 1. Build the bundled MCP server
-cd /Users/avinash/workspace/claude-plugin/mcp-server
-npm install && npm run build
+# In a Claude Code session:
+/plugin marketplace add themarkups/claude-plugin
+/plugin install cataam@cataam-marketplace
 
-# 2. Provide credentials in your shell (picked up via ${ENV} expansion in .mcp.json)
-export CATAAM_USERNAME="you@example.com"
-export CATAAM_PASSWORD="••••••"        # or: export CATAAM_API_KEY="cataam_…"
-
-# 3. Launch Claude Code with the plugin loaded
-claude --plugin-dir /Users/avinash/workspace/claude-plugin
+# …or from the terminal:
+claude plugin marketplace add themarkups/claude-plugin
+claude plugin install cataam@cataam-marketplace
 ```
 
-To publish via a marketplace instead:
+Then provide credentials in your shell (picked up via `${ENV}` expansion in `.mcp.json`):
 
 ```bash
-claude plugin marketplace add <your-org>/cataam-plugin   # repo hosting .claude-plugin/marketplace.json
-claude plugin install cataam@cataam-marketplace
+export CATAAM_USERNAME="you@example.com"
+export CATAAM_PASSWORD="••••••"        # or: export CATAAM_API_KEY="cataam_…"
 ```
 
 ### As a standalone MCP server (any MCP client / `claude mcp add`)
 
 ```bash
-cd /Users/avinash/workspace/claude-plugin/mcp-server
-npm install && npm run build
-
 claude mcp add cataam \
   --env CATAAM_BASE_URL=https://service.cataam.com \
   --env CATAAM_API_KEY=cataam_xxx \
-  -- node /Users/avinash/workspace/claude-plugin/mcp-server/dist/index.js
+  -- npx -y cataam-mcp-server
+```
+
+### Local development
+
+```bash
+cd mcp-server && npm install && npm run build
+claude --plugin-dir /path/to/claude-plugin   # loads the plugin from source
 ```
 
 Remote (streamable-HTTP) deployment:
