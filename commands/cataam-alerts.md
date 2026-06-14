@@ -1,9 +1,9 @@
 ---
-description: Triage open CATAAM compliance problems — latest failing-test alerts and continuous-control-monitoring (CCM) alerts.
+description: Triage open Cataam compliance problems — latest failing-test alerts and continuous-control-monitoring (CCM) alerts.
 allowed-tools: mcp__cataam__list_failing_alerts, mcp__cataam__get_compliance_overview
 ---
 
-You are triaging open compliance problems in CATAAM.
+You are triaging open compliance problems in Cataam.
 
 1. Call `mcp__cataam__list_failing_alerts`.
 2. Present two sections:

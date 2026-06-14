@@ -1,10 +1,10 @@
 ---
-description: List CATAAM compliance tests (controls) with pass/fail status. Filter by framework, category, status, or name.
+description: List Cataam compliance tests (controls) with pass/fail status. Filter by framework, category, status, or name.
 argument-hint: "[framework] [status] [search terms]"
 allowed-tools: mcp__cataam__list_compliance_tests
 ---
 
-You are listing compliance tests from CATAAM.
+You are listing compliance tests from Cataam.
 
 1. Parse `$ARGUMENTS` for intent and map to `mcp__cataam__list_compliance_tests` parameters:
    - A framework name (SOC2 / GDPR / ISO27001) → `frameWork`

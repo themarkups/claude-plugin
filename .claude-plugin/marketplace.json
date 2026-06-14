@@ -1,15 +1,15 @@
 {
   "name": "cataam-marketplace",
-  "description": "Official marketplace for CATAAM — connect Claude to your SOC 2 / GDPR / ISO 27001 compliance program.",
+  "description": "Official marketplace for Cataam — connect Claude to your SOC 2 / GDPR / ISO 27001 compliance program.",
   "owner": {
-    "name": "CATAAM",
+    "name": "Cataam",
     "url": "https://cataam.com"
   },
   "plugins": [
     {
       "name": "cataam",
       "source": "./",
-      "description": "MCP connector + compliance workflows for CATAAM (SOC2, GDPR, ISO27001).",
+      "description": "MCP connector + compliance workflows for Cataam (SOC2, GDPR, ISO27001).",
       "version": "0.1.0"
     }
   ]

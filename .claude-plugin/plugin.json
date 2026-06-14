@@ -1,10 +1,10 @@
 {
   "name": "cataam",
-  "displayName": "CATAAM Compliance",
+  "displayName": "Cataam Compliance",
   "version": "0.1.0",
-  "description": "Connect Claude to CATAAM — the GRC/compliance-automation platform (SOC2, GDPR, ISO27001). Bundles an MCP connector plus slash-command workflows to review compliance posture, triage failing controls, and remediate.",
+  "description": "Connect Claude to Cataam — the GRC/compliance-automation platform (SOC2, GDPR, ISO27001). Bundles an MCP connector plus slash-command workflows to review compliance posture, triage failing controls, and remediate.",
   "author": {
-    "name": "CATAAM"
+    "name": "Cataam"
   },
   "homepage": "https://cataam.com",
   "keywords": ["compliance", "grc", "soc2", "gdpr", "iso27001", "audit", "security", "mcp"]

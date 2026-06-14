@@ -1,7 +1,7 @@
 # cataam-mcp-server
 
-The MCP connector for CATAAM. TypeScript, built on `@modelcontextprotocol/sdk`.
-Exposes CATAAM's `/api/audit/**` compliance surface as MCP tools.
+The MCP connector for Cataam. TypeScript, built on `@modelcontextprotocol/sdk`.
+Exposes Cataam's `/api/audit/**` compliance surface as MCP tools.
 
 ## Layout
 
@@ -42,11 +42,11 @@ fast with a clear message if neither is configured.
 - **stdio** — what the Claude plugin and `claude mcp add` use. Auth comes from env.
 - **streamable-HTTP** — for remote/hosted SaaS deployment. Stateless: a fresh server is
   built per request, and an incoming `X-API-Key` request header overrides the env key,
-  so one hosted process can serve many CATAAM orgs. `GET`/`DELETE /mcp` return 405.
+  so one hosted process can serve many Cataam orgs. `GET`/`DELETE /mcp` return 405.
 
 ## Auth scoping note
 
-CATAAM's `X-API-Key` filter only covers `/api/audit/**` (and a reserved `/api/iasm/**`).
+Cataam's `X-API-Key` filter only covers `/api/audit/**` (and a reserved `/api/iasm/**`).
 All tools are intentionally scoped to `/api/audit/**` for **both** auth modes — even
 though JWT could reach more — so migrating customers from JWT to API keys is seamless.
 

@@ -1,10 +1,10 @@
 ---
-description: Show CATAAM compliance posture — overall readiness score and per-framework pass rates. Optionally drill into one framework.
+description: Show Cataam compliance posture — overall readiness score and per-framework pass rates. Optionally drill into one framework.
 argument-hint: "[frameworkId]"
 allowed-tools: mcp__cataam__get_compliance_overview
 ---
 
-You are reporting the organization's compliance posture from CATAAM.
+You are reporting the organization's compliance posture from Cataam.
 
 1. Call `mcp__cataam__get_compliance_overview`. If the user provided a framework id in `$ARGUMENTS`, pass it as `frameworkId` to include that framework's detailed progress.
 2. Summarize for a human, clearly and concisely:

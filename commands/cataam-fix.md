@@ -1,10 +1,10 @@
 ---
-description: Remediate a CATAAM compliance test — re-run it to verify a fix, set a due date, or link it to a Jira issue. Always confirms before changing anything.
+description: Remediate a Cataam compliance test — re-run it to verify a fix, set a due date, or link it to a Jira issue. Always confirms before changing anything.
 argument-hint: "<auditProgressId> [rerun|due-date <YYYY-MM-DD>|jira <KEY>]"
 allowed-tools: mcp__cataam__list_compliance_tests, mcp__cataam__rerun_compliance_test, mcp__cataam__update_test_due_date, mcp__cataam__link_test_to_jira
 ---
 
-You are remediating a compliance test in CATAAM. These actions MUTATE compliance state, so you MUST confirm with the user before executing.
+You are remediating a compliance test in Cataam. These actions MUTATE compliance state, so you MUST confirm with the user before executing.
 
 1. Identify the target test from `$ARGUMENTS`:
    - The first token should be an `auditProgressId`. If it's missing, ask the user for it (they can find it via `/cataam-tests` or `/cataam-alerts`).

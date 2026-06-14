@@ -1,13 +1,33 @@
-# CATAAM Claude Plugin
+<p align="center">
+  <a href="https://cataam.com">
+    <img src="./assets/logo.svg" alt="Cataam — Security · Compliance" height="70" />
+  </a>
+</p>
 
-Connect Claude to **CATAAM** — the GRC / compliance-automation platform (SOC2, GDPR,
-ISO27001). This plugin bundles two things:
+<p align="center">
+  <strong>Bring your SOC&nbsp;2, GDPR & ISO&nbsp;27001 compliance program into Claude — powered by <a href="https://cataam.com">Cataam</a>.</strong>
+</p>
 
-1. **An MCP server** (`mcp-server/`) — the connector. Exposes CATAAM's `/api/audit`
+<p align="center">
+  <a href="https://cataam.com"><img src="https://img.shields.io/badge/Maintained%20by-Cataam-3b82f6?style=flat-square&logo=shieldsdotio&logoColor=white" alt="Maintained by Cataam"></a>
+  <a href="https://www.npmjs.com/package/cataam-mcp-server"><img src="https://img.shields.io/npm/v/cataam-mcp-server?style=flat-square&color=3b82f6&label=npm" alt="npm version"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-22c55e?style=flat-square" alt="MIT License"></a>
+  <a href="https://github.com/themarkups/claude-plugin/stargazers"><img src="https://img.shields.io/github/stars/themarkups/claude-plugin?style=flat-square&color=facc15" alt="GitHub Stars"></a>
+  <a href="https://github.com/themarkups/claude-plugin/issues"><img src="https://img.shields.io/github/issues/themarkups/claude-plugin?style=flat-square" alt="Issues"></a>
+</p>
+
+---
+
+The **Cataam Claude Plugin** connects Claude to [Cataam](https://cataam.com) — the GRC,
+iASM & BAS platform for CISOs, CPAs, and enterprises. Ask Claude about your audit
+readiness, triage failing controls, and remediate — without leaving your terminal.
+
+It bundles two things, and ships as **both** a standalone MCP server *and* an installable
+Claude plugin:
+
+1. **An MCP server** (`mcp-server/`) — the connector. Exposes Cataam's `/api/audit`
    compliance surface as a small set of precise MCP tools.
 2. **Slash-command skills** (`commands/`) — packaged workflows that drive those tools.
-
-It ships as **both** a standalone MCP server *and* an installable Claude plugin.
 
 ---
 
@@ -109,7 +129,20 @@ See [`mcp-server/README.md`](mcp-server/README.md) for server internals and deve
 
 ## Example invocations
 
-- "What's our SOC2 readiness?" → `/cataam-status`
-- "Show failing ISO27001 controls" → `/cataam-tests ISO27001 FAIL`
+- "What's our SOC 2 readiness?" → `/cataam-status`
+- "Show failing ISO 27001 controls" → `/cataam-tests ISO27001 FAIL`
 - "What needs attention?" → `/cataam-alerts`
 - "I fixed the S3 logging issue, re-check control 142" → `/cataam-fix 142 rerun`
+
+---
+
+## About Cataam
+
+[Cataam](https://cataam.com) is a GRC, iASM & BAS platform built for CISOs, CPAs, and
+enterprises. It provides continuous control monitoring, automated evidence collection, and
+attack surface management — so compliance becomes an operational output rather than a
+periodic audit exercise. This plugin brings that program directly into Claude.
+
+## License
+
+MIT — see [LICENSE](LICENSE). Free to use, fork, and build upon.
