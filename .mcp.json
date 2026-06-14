@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "cataam": {
+      "command": "node",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp-server/dist/index.js"],
+      "env": {
+        "CATAAM_BASE_URL": "${CATAAM_BASE_URL:-https://service.cataam.com}",
+        "CATAAM_API_KEY": "${CATAAM_API_KEY:-}",
+        "CATAAM_USERNAME": "${CATAAM_USERNAME:-}",
+        "CATAAM_PASSWORD": "${CATAAM_PASSWORD:-}"
+      }
+    }
+  }
+}

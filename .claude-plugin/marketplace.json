@@ -1,0 +1,15 @@
+{
+  "name": "cataam-marketplace",
+  "owner": {
+    "name": "CATAAM",
+    "url": "https://cataam.com"
+  },
+  "plugins": [
+    {
+      "name": "cataam",
+      "source": "./",
+      "description": "MCP connector + compliance workflows for CATAAM (SOC2, GDPR, ISO27001).",
+      "version": "0.1.0"
+    }
+  ]
+}
