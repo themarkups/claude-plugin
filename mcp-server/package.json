@@ -1,6 +1,6 @@
 {
   "name": "cataam-mcp-server",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MCP connector for Cataam — the GRC/compliance-automation platform (SOC2, GDPR, ISO27001). Exposes the /api/audit compliance surface as MCP tools.",
   "license": "MIT",
   "type": "module",

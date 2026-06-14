@@ -50,7 +50,10 @@ Claude plugin:
 - **`link_test_to_jira`** ⚠️ *write* — link a test to a Jira issue key.
 
 The three write tools require an explicit `confirm: true` argument; the server refuses
-otherwise, and the `/cataam-fix` workflow always confirms with you before acting.
+otherwise and logs every executed write. Note `confirm` is a model-supplied flag, not
+server-enforced approval — true human-in-the-loop comes from the `/cataam-fix` workflow,
+which confirms with you before acting. Backend authorization (org-scoping + entitlement)
+is the real guard on writes.
 
 ---
 
@@ -60,10 +63,11 @@ The API is served from **`https://service.cataam.com`**. Two modes are supported
 env vars, never hardcode secrets:
 
 - **API key (recommended)** — `CATAAM_API_KEY` (an `X-API-Key`, looks like `cataam_…`).
-  This is the long-term integration path. *Note: in-UI key generation is being rolled out;
-  until then use JWT below.*
-- **JWT login (works today)** — `CATAAM_USERNAME` + `CATAAM_PASSWORD`. The server logs in
-  at `POST /api/login`, caches the short-lived token, and re-authenticates automatically.
+  Generate one in the CATAAM app under **Settings → Integrations → API Keys** (the key is
+  shown once — copy it then). This is the preferred path: scoped, revocable, no expiry.
+- **JWT login** — `CATAAM_USERNAME` + `CATAAM_PASSWORD`. The server logs in at
+  `POST /api/login`, caches the short-lived token, and re-authenticates on 401. Convenient
+  for local use, but it puts long-lived credentials in env — prefer an API key where you can.
 
 Optional: `CATAAM_BASE_URL` (default `https://service.cataam.com`) to target staging/local.
 

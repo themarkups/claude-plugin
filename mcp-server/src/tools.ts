@@ -6,9 +6,11 @@
  * Tools follow a list → context → act shape.
  *
  * Write tools (rerun / due-date / jira-link) require an explicit `confirm: true`
- * argument. The server refuses the call without it, so a model cannot mutate
- * compliance state without a deliberate, logged decision. The slash-command
- * skills instruct the model to confirm with the human before passing it.
+ * argument; the server refuses the call without it and logs every executed write to
+ * stderr. NOTE: `confirm` is a MODEL-supplied flag — it is NOT server-enforced human
+ * approval. Real human-in-the-loop is provided by the slash-command workflows (which
+ * confirm with the user before setting it); a server-enforced MCP elicitation/approval
+ * is a roadmap item. Backend authorization (org-scoping, entitlement) is the real guard.
  */
 
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -34,11 +36,22 @@ async function guard(fn: () => Promise<unknown>) {
   }
 }
 
+// Optional (default false) so the explicit "Refused" branch is reachable — not a schema
+// error. NOTE: this is a model-supplied flag, not server-enforced human approval; the
+// slash-command workflows are responsible for confirming with the user first.
 const CONFIRM = z
   .boolean()
+  .optional()
+  .default(false)
   .describe(
-    "Must be true to execute this state-changing action. Confirm intent with the user before setting."
+    "Must be set to true to execute this state-changing action. Defaults to false; the " +
+      "server refuses the write without it. Confirm with the user before setting true."
   );
+
+/** Append-only write log to stderr so every mutation is recorded by the host. */
+function auditLog(action: string, args: Record<string, unknown>): void {
+  console.error(`[cataam-mcp][write] ${new Date().toISOString()} ${action} ${JSON.stringify(args)}`);
+}
 
 export function registerTools(server: McpServer, client: CataamClient): void {
   // ---- LIST -------------------------------------------------------------
@@ -91,12 +104,50 @@ export function registerTools(server: McpServer, client: CataamClient): void {
     },
     async ({ frameworkId }) =>
       guard(async () => {
-        const [readiness, summary, progress] = await Promise.all([
+        // Degrade gracefully — one failing sub-call shouldn't sink the whole overview.
+        const [r, s, p] = await Promise.allSettled([
           client.getReadinessScore(),
           client.getComplianceSummary(),
           frameworkId ? client.getFrameworkProgress(frameworkId) : Promise.resolve(null),
         ]);
-        return { readinessScore: readiness, complianceSummary: summary, frameworkProgress: progress };
+        const val = <T>(x: PromiseSettledResult<T>) => (x.status === "fulfilled" ? x.value : null);
+        const readiness = val(r);
+        const summary = val(s);
+        const frameworkProgress = val(p);
+
+        // Coverage caveat: the readiness score is computed over EXECUTED tests only, so a
+        // single passing check can read "Audit Ready". Surface coverage so the model can't
+        // over-claim audit-readiness (relays the backend's known scoring limitation).
+        let coverage: { executedTests: number; totalTests: number; coveragePct: number } | null = null;
+        let coverageCaveat: string | undefined;
+        if (Array.isArray(summary)) {
+          const rows = summary as Array<{ totalTests?: number; passedTests?: number; failedTests?: number }>;
+          const totalTests = rows.reduce((a, f) => a + (f.totalTests ?? 0), 0);
+          const executedTests = rows.reduce((a, f) => a + (f.passedTests ?? 0) + (f.failedTests ?? 0), 0);
+          const coveragePct = totalTests ? Math.round((executedTests / totalTests) * 1000) / 10 : 0;
+          coverage = { executedTests, totalTests, coveragePct };
+          if (coveragePct < 60) {
+            coverageCaveat =
+              `⚠️ Readiness reflects EXECUTED tests only — ${executedTests}/${totalTests} ` +
+              `(${coveragePct}%) executed. Do NOT report the org as audit-ready on this score alone; ` +
+              `more tests must be run first.`;
+          }
+        }
+
+        const partialErrors = [
+          r.status === "rejected" ? `readinessScore: ${(r.reason as Error)?.message ?? r.reason}` : null,
+          s.status === "rejected" ? `complianceSummary: ${(s.reason as Error)?.message ?? s.reason}` : null,
+          p.status === "rejected" ? `frameworkProgress: ${(p.reason as Error)?.message ?? p.reason}` : null,
+        ].filter(Boolean);
+
+        return {
+          readinessScore: readiness,
+          complianceSummary: summary,
+          frameworkProgress,
+          coverage,
+          ...(coverageCaveat ? { coverageCaveat } : {}),
+          ...(partialErrors.length ? { partialErrors } : {}),
+        };
       })
   );
 
@@ -137,7 +188,8 @@ export function registerTools(server: McpServer, client: CataamClient): void {
       },
     },
     async ({ auditProgressId, confirm }) => {
-      if (!confirm) return fail("Refused: rerun_compliance_test requires confirm=true.");
+      if (!confirm) return fail("Refused: rerun_compliance_test requires confirm=true. Confirm with the user first.");
+      auditLog("rerun_compliance_test", { auditProgressId });
       return guard(() => client.rerunTest(auditProgressId));
     }
   );
@@ -160,7 +212,8 @@ export function registerTools(server: McpServer, client: CataamClient): void {
       },
     },
     async ({ auditProgressId, newDueDate, confirm }) => {
-      if (!confirm) return fail("Refused: update_test_due_date requires confirm=true.");
+      if (!confirm) return fail("Refused: update_test_due_date requires confirm=true. Confirm with the user first.");
+      auditLog("update_test_due_date", { auditProgressId, newDueDate });
       return guard(() => client.updateDueDate(auditProgressId, newDueDate));
     }
   );
@@ -180,7 +233,8 @@ export function registerTools(server: McpServer, client: CataamClient): void {
       },
     },
     async ({ auditProgressId, jiraId, confirm }) => {
-      if (!confirm) return fail("Refused: link_test_to_jira requires confirm=true.");
+      if (!confirm) return fail("Refused: link_test_to_jira requires confirm=true. Confirm with the user first.");
+      auditLog("link_test_to_jira", { auditProgressId, jiraId });
       return guard(() => client.linkToJira(auditProgressId, jiraId));
     }
   );
