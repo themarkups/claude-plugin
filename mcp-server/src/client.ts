@@ -176,6 +176,14 @@ export class CataamClient {
       { body: { jiraId } }
     );
   }
+
+  /**
+   * POST /api/audit/governance/publish-policies — publish every adopted-but-unpublished policy
+   * for the org. A genuine governance action that lifts the readiness policy sub-score.
+   */
+  publishPolicies(): Promise<unknown> {
+    return this.request("POST", "/api/audit/governance/publish-policies");
+  }
 }
 
 async function safeText(res: Response): Promise<string | undefined> {

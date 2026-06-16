@@ -238,4 +238,25 @@ export function registerTools(server: McpServer, client: CataamClient): void {
       return guard(() => client.linkToJira(auditProgressId, jiraId));
     }
   );
+
+  // ---- ACT: publish governance policies --------------------------------
+  server.registerTool(
+    "publish_policies",
+    {
+      title: "Publish adopted policies",
+      description:
+        "Publish every adopted-but-unpublished policy for the org in one step — the governance " +
+        "remediation lever that lifts the readiness policy sub-score. This MUTATES state (formally " +
+        "publishes the policies and raises human acknowledgement requests). Requires confirm=true. " +
+        "Returns { published, alreadyPublished, total }.",
+      inputSchema: {
+        confirm: CONFIRM,
+      },
+    },
+    async ({ confirm }) => {
+      if (!confirm) return fail("Refused: publish_policies requires confirm=true. Confirm with the user first.");
+      auditLog("publish_policies", {});
+      return guard(() => client.publishPolicies());
+    }
+  );
 }
