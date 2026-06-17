@@ -193,6 +193,20 @@ export class CataamClient {
     return this.request("POST", "/api/audit/governance/finalize-documents");
   }
 
+  /**
+   * POST /api/audit/documents/remediate — author + finalise the document a
+   * document-presence control looks for, then re-run the control. The authoring
+   * half that finalizeDocuments() (finalise-only) cannot do. Returns the new
+   * document id and the genuine post-run verdict.
+   */
+  remediateDocumentControl(params: {
+    testId: number;
+    title?: string;
+    content?: string;
+  }): Promise<unknown> {
+    return this.request("POST", "/api/audit/documents/remediate", { body: params });
+  }
+
   // ---- evidence workflow (manual-test execution) -----------------------
 
   /** POST /api/audit/evidence/requests/by-test — open an evidence request for a control. */
