@@ -322,6 +322,46 @@ export function registerTools(server: McpServer, client: CataamClient): void {
     }
   );
 
+  // ---- ACT: generate evidence document from the iASM Attack Graph --------
+  server.registerTool(
+    "generate_network_diagram_from_iasm",
+    {
+      title: "Generate network diagram / data inventory from iASM",
+      description:
+        "Generate a SOC 2 evidence document straight from the org's iASM Attack Graph (the " +
+        "discovered asset topology) and finalise it IN_FORCE so the matching document-presence " +
+        "control passes — 'your attack surface IS your network diagram'. Snapshots the live topology " +
+        "(inventory by layer, a Mermaid diagram, provenance, and an embedded JSON snapshot for auditor " +
+        "download) as a point-in-time artifact. Prefer this over remediate_document_control for the " +
+        "'Network diagram' and 'Maintain data inventory map' controls — it produces a real, " +
+        "evidence-backed artifact instead of a blank scaffold. kind='network-diagram' (default) targets " +
+        "the Network diagram control; kind='data-inventory' targets the data inventory control. The " +
+        "control's testId is resolved automatically unless you pass one. Requires a prior iASM connector " +
+        "sync (errors if the graph is empty). MUTATES state; requires confirm=true. Returns " +
+        "{ documentId, title, kind, assetCount, edgeCount, status, passed }. Leaves [CONFIRM] items " +
+        "(management approval, non-discovered components) for the org to complete; never reports PASS " +
+        "unless the control actually passed.",
+      inputSchema: {
+        kind: z
+          .enum(["network-diagram", "data-inventory"])
+          .default("network-diagram")
+          .describe("Which evidence document to generate from the graph."),
+        testId: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe("Optional Tests id of the control to satisfy. Auto-resolved from kind if omitted."),
+        confirm: CONFIRM,
+      },
+    },
+    async ({ kind, testId, confirm }) => {
+      if (!confirm) return fail("Refused: generate_network_diagram_from_iasm requires confirm=true. Confirm with the user first.");
+      auditLog("generate_network_diagram_from_iasm", { kind, testId });
+      return guard(() => client.generateIasmEvidenceDocument({ kind, testId }));
+    }
+  );
+
   // ---- EVIDENCE: drive manual-test execution ----------------------------
   // Manual controls (HR records, vendor reports, board minutes, …) can't be
   // auto-evaluated. The org admin executes them by opening an evidence request,

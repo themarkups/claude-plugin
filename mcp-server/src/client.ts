@@ -207,6 +207,21 @@ export class CataamClient {
     return this.request("POST", "/api/audit/documents/remediate", { body: params });
   }
 
+  /**
+   * POST /api/audit/documents/network-diagram-from-iasm — generate a SOC 2 evidence
+   * document straight from the iASM Attack Graph (discovered topology), finalise it
+   * IN_FORCE, and re-run the matching document-presence control. Supports
+   * kind="network-diagram" (Network diagram control) and kind="data-inventory"
+   * (Maintain data inventory map control). Returns the new document id, asset/edge
+   * counts, and the genuine post-run verdict.
+   */
+  generateIasmEvidenceDocument(params: {
+    kind?: "network-diagram" | "data-inventory";
+    testId?: number;
+  }): Promise<unknown> {
+    return this.request("POST", "/api/audit/documents/network-diagram-from-iasm", { body: params });
+  }
+
   // ---- evidence workflow (manual-test execution) -----------------------
 
   /** POST /api/audit/evidence/requests/by-test — open an evidence request for a control. */
