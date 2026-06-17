@@ -2,7 +2,7 @@
   "mcpServers": {
     "cataam": {
       "command": "npx",
-      "args": ["-y", "cataam-mcp-server@0.1.0"],
+      "args": ["-y", "cataam-mcp-server@0.1.3"],
       "env": {
         "CATAAM_BASE_URL": "${CATAAM_BASE_URL:-https://service.cataam.com}",
         "CATAAM_API_KEY": "${CATAAM_API_KEY:-}",
