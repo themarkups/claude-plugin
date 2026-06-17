@@ -279,4 +279,105 @@ export function registerTools(server: McpServer, client: CataamClient): void {
       return guard(() => client.finalizeDocuments());
     }
   );
+
+  // ---- EVIDENCE: drive manual-test execution ----------------------------
+  // Manual controls (HR records, vendor reports, board minutes, …) can't be
+  // auto-evaluated. The org admin executes them by opening an evidence request,
+  // attaching evidence, and having a human reviewer accept it (acceptance latches
+  // the control PASS). These tools cover the assemble+submit half; the reviewer
+  // step stays human in the UI — there is intentionally no accept/reject tool.
+
+  server.registerTool(
+    "list_evidence_status",
+    {
+      title: "List evidence status",
+      description:
+        "Read the organization's manual-evidence state: org-wide counts " +
+        "(requested / submitted / approved / rejected) and — when a testId is given — the " +
+        "evidence requests already opened for that specific control. Use this to see which " +
+        "manual tests still need evidence assembled or are awaiting review. The testId is the " +
+        "Tests id (the 'id' field from list_compliance_tests), not the auditProgressId.",
+      inputSchema: {
+        testId: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .describe("Optional Tests id to list that control's evidence requests."),
+      },
+    },
+    async ({ testId }) =>
+      guard(async () => {
+        const [summary, requests] = await Promise.all([
+          client.getEvidenceSummary(),
+          testId ? client.listEvidenceForTest(testId) : Promise.resolve(null),
+        ]);
+        return { summary, requests };
+      })
+  );
+
+  server.registerTool(
+    "create_evidence_request",
+    {
+      title: "Open an evidence request for a manual control",
+      description:
+        "Open an evidence request against a manual compliance control so its execution can be " +
+        "tracked and evidenced. This MUTATES state (creates a request record). Requires " +
+        "confirm=true. testId is the Tests id from list_compliance_tests. Returns the created " +
+        "request including its id — pass that id to attach_evidence.",
+      inputSchema: {
+        testId: z.number().int().positive().describe("Tests id (from list_compliance_tests)."),
+        title: z.string().min(1).describe("Short title for the evidence request."),
+        description: z.string().optional().describe("What evidence is being requested / context."),
+        evidenceType: z
+          .string()
+          .optional()
+          .describe("Evidence type hint, e.g. 'DOCUMENT', 'LINK', 'ANY' (default ANY)."),
+        dueDate: z
+          .string()
+          .regex(/^\d{4}-\d{2}-\d{2}$/, "Use ISO date YYYY-MM-DD.")
+          .optional()
+          .describe("Optional due date, ISO YYYY-MM-DD."),
+        confirm: CONFIRM,
+      },
+    },
+    async ({ confirm, ...params }) => {
+      if (!confirm)
+        return fail("Refused: create_evidence_request requires confirm=true. Confirm with the user first.");
+      auditLog("create_evidence_request", { testId: params.testId, title: params.title });
+      return guard(() => client.createEvidenceRequest(params));
+    }
+  );
+
+  server.registerTool(
+    "attach_evidence",
+    {
+      title: "Attach evidence to a request",
+      description:
+        "Attach a note or an external link as evidence to an existing evidence request. This " +
+        "MUTATES state. Requires confirm=true. Provide exactly one of `notes` (free text) or " +
+        "`link` (a URL). Attaching evidence does NOT pass the control — a human reviewer must " +
+        "accept it in the Cataam UI, which is what latches the control to PASS (separation of " +
+        "duties). Find requestId via list_evidence_status or create_evidence_request.",
+      inputSchema: {
+        requestId: z.number().int().positive().describe("The evidence request id."),
+        notes: z.string().optional().describe("Free-text evidence note. Mutually exclusive with link."),
+        link: z.string().url().optional().describe("External evidence URL. Mutually exclusive with notes."),
+        confirm: CONFIRM,
+      },
+    },
+    async ({ requestId, notes, link, confirm }) => {
+      if (!confirm)
+        return fail("Refused: attach_evidence requires confirm=true. Confirm with the user first.");
+      if ((notes && link) || (!notes && !link)) {
+        return fail("Provide exactly one of `notes` or `link`.");
+      }
+      auditLog("attach_evidence", { requestId, kind: link ? "link" : "note" });
+      return guard(() =>
+        link
+          ? client.attachEvidenceLink(requestId, link, notes)
+          : client.attachEvidenceNote(requestId, notes as string)
+      );
+    }
+  );
 }

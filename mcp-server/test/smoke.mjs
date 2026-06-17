@@ -27,6 +27,11 @@ const EXPECTED_TOOLS = [
   "rerun_compliance_test",
   "update_test_due_date",
   "link_test_to_jira",
+  "publish_policies",
+  "publish_documents",
+  "list_evidence_status",
+  "create_evidence_request",
+  "attach_evidence",
 ];
 
 function assert(cond, msg) {
