@@ -184,6 +184,14 @@ export class CataamClient {
   publishPolicies(): Promise<unknown> {
     return this.request("POST", "/api/audit/governance/publish-policies");
   }
+
+  /**
+   * POST /api/audit/governance/finalize-documents — put every not-yet-in-force document IN_FORCE
+   * for the org. Genuine governance action that lifts the readiness evidence sub-score.
+   */
+  finalizeDocuments(): Promise<unknown> {
+    return this.request("POST", "/api/audit/governance/finalize-documents");
+  }
 }
 
 async function safeText(res: Response): Promise<string | undefined> {
