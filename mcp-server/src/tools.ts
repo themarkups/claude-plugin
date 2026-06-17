@@ -280,6 +280,48 @@ export function registerTools(server: McpServer, client: CataamClient): void {
     }
   );
 
+  // ---- ACT: remediate a failing document-presence control ---------------
+  server.registerTool(
+    "remediate_document_control",
+    {
+      title: "Remediate a document-presence control",
+      description:
+        "Fix a FAILING document-presence control (e.g. 'System Description (Section III)', " +
+        "'Network diagram', 'Data inventory map', 'Risk Assessment') by AUTHORING the document " +
+        "the control looks for and finalising it IN_FORCE, then re-running the control so the " +
+        "verdict flips. Use this when the control's reason is 'No in-force document found for this " +
+        "control' — publish_documents alone cannot fix it because there is no draft to finalise. " +
+        "Pass the control's Tests id (the 'id' from list_compliance_tests). By default the document " +
+        "is titled after the control and seeded with an honest scaffold that the org must complete; " +
+        "pass title/content to provide your own. This MUTATES state and requires confirm=true. " +
+        "Returns { documentId, title, testId, status, passed, authoredScaffold } with the REAL " +
+        "post-run verdict — it never reports PASS unless the control actually passed.",
+      inputSchema: {
+        testId: z
+          .number()
+          .int()
+          .positive()
+          .describe("Tests id of the document-presence control (from list_compliance_tests)."),
+        title: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("Optional document title. Defaults to the control's test name (which satisfies the title match)."),
+        content: z
+          .string()
+          .min(1)
+          .optional()
+          .describe("Optional document body. Defaults to an honest scaffold with [CONFIRM] items for the org to complete."),
+        confirm: CONFIRM,
+      },
+    },
+    async ({ testId, title, content, confirm }) => {
+      if (!confirm) return fail("Refused: remediate_document_control requires confirm=true. Confirm with the user first.");
+      auditLog("remediate_document_control", { testId, hasTitle: !!title, hasContent: !!content });
+      return guard(() => client.remediateDocumentControl({ testId, title, content }));
+    }
+  );
+
   // ---- EVIDENCE: drive manual-test execution ----------------------------
   // Manual controls (HR records, vendor reports, board minutes, …) can't be
   // auto-evaluated. The org admin executes them by opening an evidence request,
