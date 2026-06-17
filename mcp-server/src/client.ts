@@ -192,6 +192,43 @@ export class CataamClient {
   finalizeDocuments(): Promise<unknown> {
     return this.request("POST", "/api/audit/governance/finalize-documents");
   }
+
+  // ---- evidence workflow (manual-test execution) -----------------------
+
+  /** POST /api/audit/evidence/requests/by-test — open an evidence request for a control. */
+  createEvidenceRequest(params: {
+    testId: number;
+    title: string;
+    description?: string;
+    evidenceType?: string;
+    dueDate?: string;
+  }): Promise<unknown> {
+    return this.request("POST", "/api/audit/evidence/requests/by-test", { body: params });
+  }
+
+  /** POST /api/audit/evidence/requests/{id}/items/note — attach a free-text note. */
+  attachEvidenceNote(requestId: number, notes: string): Promise<unknown> {
+    return this.request("POST", `/api/audit/evidence/requests/${requestId}/items/note`, {
+      body: { notes },
+    });
+  }
+
+  /** POST /api/audit/evidence/requests/{id}/items/link — attach an external link. */
+  attachEvidenceLink(requestId: number, externalLink: string, notes?: string): Promise<unknown> {
+    return this.request("POST", `/api/audit/evidence/requests/${requestId}/items/link`, {
+      body: { externalLink, notes },
+    });
+  }
+
+  /** GET /api/audit/evidence/requests/test/{testId} — requests already opened for a control. */
+  listEvidenceForTest(testId: number): Promise<unknown> {
+    return this.request("GET", `/api/audit/evidence/requests/test/${testId}`);
+  }
+
+  /** GET /api/audit/evidence/summary — org-wide evidence counts. */
+  getEvidenceSummary(): Promise<unknown> {
+    return this.request("GET", "/api/audit/evidence/summary");
+  }
 }
 
 async function safeText(res: Response): Promise<string | undefined> {
