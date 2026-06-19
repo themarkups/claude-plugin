@@ -1,15 +1,16 @@
 # cataam-mcp-server
 
 The MCP connector for Cataam. TypeScript, built on `@modelcontextprotocol/sdk`.
-Exposes Cataam's `/api/audit/**` compliance surface as MCP tools.
+Exposes Cataam's `/api/audit/**` compliance surface and the `/api/okf/**` OKF Context
+Engine (open compliance-graph export) as MCP tools.
 
 ## Layout
 
 ```
 src/
   config.ts   — env-var config + auth-mode selection (apiKey | jwt)
-  client.ts   — typed HTTP client for /api/audit (handles X-API-Key and JWT+refresh)
-  tools.ts    — the 6 MCP tools (one-tool-per-action; write tools require confirm:true)
+  client.ts   — typed HTTP client for /api/audit + /api/okf (X-API-Key and JWT+refresh)
+  tools.ts    — the MCP tools (one-tool-per-action; write tools require confirm:true)
   index.ts    — entry point: stdio (default) or streamable-HTTP transport
 test/
   smoke.mjs   — end-to-end test (spawns server over stdio, calls a read tool live)
@@ -46,12 +47,21 @@ fast with a clear message if neither is configured.
 
 ## Auth scoping note
 
-Cataam's `X-API-Key` filter only covers `/api/audit/**` (and a reserved `/api/iasm/**`).
-All tools are intentionally scoped to `/api/audit/**` for **both** auth modes — even
-though JWT could reach more — so migrating customers from JWT to API keys is seamless.
+Cataam's `X-API-Key` filter covers `/api/audit/**`, `/api/okf/**` (and a reserved
+`/api/iasm/**`). All tools work under **both** auth modes; the OKF tools require a backend
+that scopes the API-key filter to `/api/okf/**` (cataam-mcp-server ≥ 0.1.5 / platform with
+that change) — under JWT they work regardless.
 
 ## Tools
 
-See [`../README.md`](../README.md#mcp-tools). Read tools: `list_compliance_tests`,
-`get_compliance_overview`, `list_failing_alerts`. Write tools (require `confirm:true`):
-`rerun_compliance_test`, `update_test_due_date`, `link_test_to_jira`.
+See [`../README.md`](../README.md#mcp-tools).
+
+**Compliance (`/api/audit`).** Read: `list_compliance_tests`, `get_compliance_overview`,
+`list_failing_alerts`, `list_evidence_status`. Write (`confirm:true`):
+`rerun_compliance_test`, `update_test_due_date`, `link_test_to_jira`, `publish_policies`,
+`publish_documents`, `remediate_document_control`, `generate_network_diagram_from_iasm`,
+`create_evidence_request`, `attach_evidence`.
+
+**OKF Context Engine (`/api/okf`).** Read: `get_okf_status`, `list_okf_exports`,
+`get_okf_artifact` (log.md / MANIFEST.json). Write (`confirm:true`): `generate_okf_export`,
+`configure_okf`, `pin_okf_export`, `resync_okf_git`.
