@@ -462,4 +462,136 @@ export function registerTools(server: McpServer, client: CataamClient): void {
       );
     }
   );
+
+  // ---- OKF Context Engine ----------------------------------------------
+  // Read + drive the Open Knowledge Format export of the org's compliance graph.
+
+  server.registerTool(
+    "get_okf_status",
+    {
+      title: "Get OKF Context Engine status",
+      description:
+        "Get the org's OKF (Open Knowledge Format) Context Engine status: whether it's enabled, the " +
+        "delivery mode (MANAGED_EXPORT | GIT_SYNC | BOTH), last Git commit/push, last processed " +
+        "sequence, and how many export bundles exist. Use to answer 'is OKF on?' or 'when did the " +
+        "compliance bundle last sync?'.",
+      inputSchema: {},
+    },
+    async () => guard(() => client.getOkfStatus())
+  );
+
+  server.registerTool(
+    "list_okf_exports",
+    {
+      title: "List OKF export bundles",
+      description:
+        "List the org's point-in-time OKF export bundles (newest first): version, status, file count, " +
+        "bundle SHA-256, pinned flag and timestamp — each a signed snapshot of the compliance graph " +
+        "for auditor handoff. Returns the version id needed by get_okf_artifact / pin_okf_export.",
+      inputSchema: {},
+    },
+    async () => guard(() => client.listOkfExports())
+  );
+
+  server.registerTool(
+    "get_okf_artifact",
+    {
+      title: "Read an OKF bundle artifact (log.md or manifest)",
+      description:
+        "Fetch a TEXT artifact from a specific OKF export bundle. artifact='log' returns log.md — the " +
+        "chronological audit/state-history timeline (best for 'what changed and when'); " +
+        "artifact='manifest' returns MANIFEST.json — the per-file SHA-256 index. Pass the export " +
+        "version from list_okf_exports. The binary .zip is downloaded from the Cataam UI, not here.",
+      inputSchema: {
+        version: z.string().min(1).describe("Export version id (from list_okf_exports)."),
+        artifact: z.enum(["log", "manifest"]).default("log").describe("Which text artifact to fetch."),
+      },
+    },
+    async ({ version, artifact }) =>
+      guard(async () => ({ version, artifact, content: await client.getOkfArtifact(version, artifact) }))
+  );
+
+  server.registerTool(
+    "generate_okf_export",
+    {
+      title: "Generate an OKF export bundle",
+      description:
+        "Compile a fresh signed point-in-time OKF bundle of the org's current compliance graph (for " +
+        "auditor handoff or AI ingestion). MUTATES state (creates a new export). Requires confirm=true. " +
+        "Returns the new export record (version, fileCount, bundleSha256, status).",
+      inputSchema: { confirm: CONFIRM },
+    },
+    async ({ confirm }) => {
+      if (!confirm) return fail("Refused: generate_okf_export requires confirm=true. Confirm with the user first.");
+      auditLog("generate_okf_export", {});
+      return guard(() => client.generateOkfExport());
+    }
+  );
+
+  server.registerTool(
+    "configure_okf",
+    {
+      title: "Configure the OKF Context Engine",
+      description:
+        "Update the org's OKF settings: enable/disable, delivery mode (MANAGED_EXPORT | GIT_SYNC | BOTH), " +
+        "sync cron, signing, redaction profile, and — for Git modes — provider/repoUrl/branch. MUTATES " +
+        "configuration. Requires confirm=true. Returns the saved config. (Git write credentials are " +
+        "connected separately under Integrations, not here.)",
+      inputSchema: {
+        enabled: z.boolean().optional().describe("Turn the engine on/off for this org."),
+        deliveryMode: z
+          .enum(["MANAGED_EXPORT", "GIT_SYNC", "BOTH"])
+          .optional()
+          .describe("How the bundle is delivered."),
+        scheduleCron: z.string().optional().describe("Spring cron for Git sync, e.g. '0 0 * * * *' (hourly)."),
+        provider: z.enum(["GITHUB", "GITLAB", "BITBUCKET"]).optional().describe("Git provider (Git modes)."),
+        repoUrl: z.string().optional().describe("Target repository URL (Git modes)."),
+        branch: z.string().optional().describe("Target branch (Cataam-owned), default 'cataam-okf'."),
+        signingEnabled: z.boolean().optional().describe("Ed25519-sign exports/commits for auditor verification."),
+        redactionProfile: z.string().optional().describe("Redaction profile, e.g. 'pii'; omit/empty for none."),
+        confirm: CONFIRM,
+      },
+    },
+    async ({ confirm, ...body }) => {
+      if (!confirm) return fail("Refused: configure_okf requires confirm=true. Confirm with the user first.");
+      auditLog("configure_okf", body);
+      return guard(() => client.configureOkf(body));
+    }
+  );
+
+  server.registerTool(
+    "pin_okf_export",
+    {
+      title: "Pin an OKF export",
+      description:
+        "Pin an OKF export so it is retained (exempt from retention garbage-collection) — use for an " +
+        "audit-of-record snapshot. MUTATES state. Requires confirm=true. Pass the export version.",
+      inputSchema: {
+        version: z.string().min(1).describe("Export version id (from list_okf_exports)."),
+        confirm: CONFIRM,
+      },
+    },
+    async ({ version, confirm }) => {
+      if (!confirm) return fail("Refused: pin_okf_export requires confirm=true. Confirm with the user first.");
+      auditLog("pin_okf_export", { version });
+      return guard(() => client.pinOkfExport(version));
+    }
+  );
+
+  server.registerTool(
+    "resync_okf_git",
+    {
+      title: "Sync the OKF bundle to Git now",
+      description:
+        "Trigger an immediate Git-sync delivery of the compliance bundle to the org's configured " +
+        "repository (only meaningful when delivery mode includes GIT_SYNC). MUTATES the remote repo. " +
+        "Requires confirm=true.",
+      inputSchema: { confirm: CONFIRM },
+    },
+    async ({ confirm }) => {
+      if (!confirm) return fail("Refused: resync_okf_git requires confirm=true. Confirm with the user first.");
+      auditLog("resync_okf_git", {});
+      return guard(() => client.resyncOkf());
+    }
+  );
 }

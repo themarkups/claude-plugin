@@ -258,6 +258,79 @@ export class CataamClient {
   getEvidenceSummary(): Promise<unknown> {
     return this.request("GET", "/api/audit/evidence/summary");
   }
+
+  // ---- OKF Context Engine (/api/okf) -----------------------------------
+
+  /** GET /api/okf/status — engine status: enabled, delivery mode, last sync, export count. */
+  getOkfStatus(): Promise<unknown> {
+    return this.request("GET", "/api/okf/status");
+  }
+
+  /** GET /api/okf/exports — list of point-in-time export bundles (newest first). */
+  listOkfExports(): Promise<unknown> {
+    return this.request("GET", "/api/okf/exports");
+  }
+
+  /** POST /api/okf/export — generate a new signed point-in-time export. */
+  generateOkfExport(): Promise<unknown> {
+    return this.request("POST", "/api/okf/export");
+  }
+
+  /** POST /api/okf/resync — trigger a Git-sync delivery now (Git delivery modes only). */
+  resyncOkf(): Promise<unknown> {
+    return this.request("POST", "/api/okf/resync");
+  }
+
+  /** POST /api/okf/exports/{version}/pin — pin an export (exempt from retention GC). */
+  pinOkfExport(version: string): Promise<unknown> {
+    return this.request("POST", `/api/okf/exports/${encodeURIComponent(version)}/pin`);
+  }
+
+  /** PUT /api/okf/config — update engine settings; returns the saved config. */
+  configureOkf(body: {
+    enabled?: boolean;
+    deliveryMode?: "GIT_SYNC" | "MANAGED_EXPORT" | "BOTH";
+    scheduleCron?: string;
+    provider?: string;
+    repoUrl?: string;
+    branch?: string;
+    signingEnabled?: boolean;
+    redactionProfile?: string | null;
+  }): Promise<unknown> {
+    return this.request("PUT", "/api/okf/config", { body });
+  }
+
+  /**
+   * GET /api/okf/exports/{version}/download?artifact=log|manifest — fetch a TEXT
+   * artifact from a bundle. log.md is markdown; manifest is JSON text. The binary
+   * "bundle" zip is intentionally not exposed over MCP — the UI signed-URL download
+   * is the right channel for that.
+   */
+  getOkfArtifact(version: string, artifact: "log" | "manifest"): Promise<string> {
+    return this.requestText(
+      `/api/okf/exports/${encodeURIComponent(version)}/download`,
+      { artifact }
+    );
+  }
+
+  /** Like request() but returns raw response text (no JSON.parse) — for log.md / manifest. */
+  private async requestText(path: string, query?: Query): Promise<string> {
+    const url = new URL(this.cfg.baseUrl + path);
+    if (query) {
+      for (const [k, v] of Object.entries(query)) {
+        if (v !== undefined && v !== "") url.searchParams.set(k, String(v));
+      }
+    }
+    const doFetch = async () => fetch(url, { method: "GET", headers: { ...(await this.authHeaders()) } });
+    let res = await doFetch();
+    if (res.status === 401 && authMode(this.cfg) === "jwt") {
+      this.token = undefined;
+      await this.login();
+      res = await doFetch();
+    }
+    if (!res.ok) throw new CataamError(`GET ${path} → ${res.status}`, res.status, await safeText(res));
+    return res.text();
+  }
 }
 
 async function safeText(res: Response): Promise<string | undefined> {
