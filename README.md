@@ -50,7 +50,26 @@ Claude plugin:
 - **`link_test_to_jira`** ⚠️ *write* — link a test to a Jira issue key.
 
 The three write tools require an explicit `confirm: true` argument; the server refuses
-otherwise, and the `/cataam-fix` workflow always confirms with you before acting.
+otherwise and logs every executed write. Note `confirm` is a model-supplied flag, not
+server-enforced approval — true human-in-the-loop comes from the `/cataam-fix` workflow,
+which confirms with you before acting. Backend authorization (org-scoping + entitlement)
+is the real guard on writes.
+
+### OKF Context Engine tools
+
+Drive the OKF (Open Knowledge Format) Context Engine — the open, portable export of the
+org's compliance graph for auditors and AI agents:
+
+- **`get_okf_status`** — engine on/off, delivery mode, last sync, export count.
+- **`list_okf_exports`** — point-in-time signed export bundles (version, status, SHA-256, pinned).
+- **`get_okf_artifact`** — read a bundle's `log.md` (audit timeline) or `MANIFEST.json` as text.
+- **`generate_okf_export`** ⚠️ *write* — compile a fresh signed bundle.
+- **`configure_okf`** ⚠️ *write* — enable/disable, delivery mode, schedule, signing, Git repo.
+- **`pin_okf_export`** ⚠️ *write* — retain an export (exempt from GC) for audit-of-record.
+- **`resync_okf_git`** ⚠️ *write* — push the bundle to the configured Git repo now.
+
+These reach `/api/okf/**` and accept the same API-key / JWT auth as the audit tools (the
+binary `.zip` bundle is downloaded from the Cataam UI, not over MCP).
 
 ---
 
@@ -60,10 +79,11 @@ The API is served from **`https://service.cataam.com`**. Two modes are supported
 env vars, never hardcode secrets:
 
 - **API key (recommended)** — `CATAAM_API_KEY` (an `X-API-Key`, looks like `cataam_…`).
-  This is the long-term integration path. *Note: in-UI key generation is being rolled out;
-  until then use JWT below.*
-- **JWT login (works today)** — `CATAAM_USERNAME` + `CATAAM_PASSWORD`. The server logs in
-  at `POST /api/login`, caches the short-lived token, and re-authenticates automatically.
+  Generate one in the CATAAM app under **Settings → Integrations → API Keys** (the key is
+  shown once — copy it then). This is the preferred path: scoped, revocable, no expiry.
+- **JWT login** — `CATAAM_USERNAME` + `CATAAM_PASSWORD`. The server logs in at
+  `POST /api/login`, caches the short-lived token, and re-authenticates on 401. Convenient
+  for local use, but it puts long-lived credentials in env — prefer an API key where you can.
 
 Optional: `CATAAM_BASE_URL` (default `https://service.cataam.com`) to target staging/local.
 

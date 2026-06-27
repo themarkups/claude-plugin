@@ -176,6 +176,161 @@ export class CataamClient {
       { body: { jiraId } }
     );
   }
+
+  /**
+   * POST /api/audit/governance/publish-policies — publish every adopted-but-unpublished policy
+   * for the org. A genuine governance action that lifts the readiness policy sub-score.
+   */
+  publishPolicies(): Promise<unknown> {
+    return this.request("POST", "/api/audit/governance/publish-policies");
+  }
+
+  /**
+   * POST /api/audit/governance/finalize-documents — put every not-yet-in-force document IN_FORCE
+   * for the org. Genuine governance action that lifts the readiness evidence sub-score.
+   */
+  finalizeDocuments(): Promise<unknown> {
+    return this.request("POST", "/api/audit/governance/finalize-documents");
+  }
+
+  /**
+   * POST /api/audit/documents/remediate — author + finalise the document a
+   * document-presence control looks for, then re-run the control. The authoring
+   * half that finalizeDocuments() (finalise-only) cannot do. Returns the new
+   * document id and the genuine post-run verdict.
+   */
+  remediateDocumentControl(params: {
+    testId: number;
+    title?: string;
+    content?: string;
+  }): Promise<unknown> {
+    return this.request("POST", "/api/audit/documents/remediate", { body: params });
+  }
+
+  /**
+   * POST /api/audit/documents/network-diagram-from-iasm — generate a SOC 2 evidence
+   * document straight from the iASM Attack Graph (discovered topology), finalise it
+   * IN_FORCE, and re-run the matching document-presence control. Supports
+   * kind="network-diagram" (Network diagram control) and kind="data-inventory"
+   * (Maintain data inventory map control). Returns the new document id, asset/edge
+   * counts, and the genuine post-run verdict.
+   */
+  generateIasmEvidenceDocument(params: {
+    kind?: "network-diagram" | "data-inventory";
+    testId?: number;
+  }): Promise<unknown> {
+    return this.request("POST", "/api/audit/documents/network-diagram-from-iasm", { body: params });
+  }
+
+  // ---- evidence workflow (manual-test execution) -----------------------
+
+  /** POST /api/audit/evidence/requests/by-test — open an evidence request for a control. */
+  createEvidenceRequest(params: {
+    testId: number;
+    title: string;
+    description?: string;
+    evidenceType?: string;
+    dueDate?: string;
+  }): Promise<unknown> {
+    return this.request("POST", "/api/audit/evidence/requests/by-test", { body: params });
+  }
+
+  /** POST /api/audit/evidence/requests/{id}/items/note — attach a free-text note. */
+  attachEvidenceNote(requestId: number, notes: string): Promise<unknown> {
+    return this.request("POST", `/api/audit/evidence/requests/${requestId}/items/note`, {
+      body: { notes },
+    });
+  }
+
+  /** POST /api/audit/evidence/requests/{id}/items/link — attach an external link. */
+  attachEvidenceLink(requestId: number, externalLink: string, notes?: string): Promise<unknown> {
+    return this.request("POST", `/api/audit/evidence/requests/${requestId}/items/link`, {
+      body: { externalLink, notes },
+    });
+  }
+
+  /** GET /api/audit/evidence/requests/test/{testId} — requests already opened for a control. */
+  listEvidenceForTest(testId: number): Promise<unknown> {
+    return this.request("GET", `/api/audit/evidence/requests/test/${testId}`);
+  }
+
+  /** GET /api/audit/evidence/summary — org-wide evidence counts. */
+  getEvidenceSummary(): Promise<unknown> {
+    return this.request("GET", "/api/audit/evidence/summary");
+  }
+
+  // ---- OKF Context Engine (/api/okf) -----------------------------------
+
+  /** GET /api/okf/status — engine status: enabled, delivery mode, last sync, export count. */
+  getOkfStatus(): Promise<unknown> {
+    return this.request("GET", "/api/okf/status");
+  }
+
+  /** GET /api/okf/exports — list of point-in-time export bundles (newest first). */
+  listOkfExports(): Promise<unknown> {
+    return this.request("GET", "/api/okf/exports");
+  }
+
+  /** POST /api/okf/export — generate a new signed point-in-time export. */
+  generateOkfExport(): Promise<unknown> {
+    return this.request("POST", "/api/okf/export");
+  }
+
+  /** POST /api/okf/resync — trigger a Git-sync delivery now (Git delivery modes only). */
+  resyncOkf(): Promise<unknown> {
+    return this.request("POST", "/api/okf/resync");
+  }
+
+  /** POST /api/okf/exports/{version}/pin — pin an export (exempt from retention GC). */
+  pinOkfExport(version: string): Promise<unknown> {
+    return this.request("POST", `/api/okf/exports/${encodeURIComponent(version)}/pin`);
+  }
+
+  /** PUT /api/okf/config — update engine settings; returns the saved config. */
+  configureOkf(body: {
+    enabled?: boolean;
+    deliveryMode?: "GIT_SYNC" | "MANAGED_EXPORT" | "BOTH";
+    scheduleCron?: string;
+    provider?: string;
+    repoUrl?: string;
+    branch?: string;
+    signingEnabled?: boolean;
+    redactionProfile?: string | null;
+  }): Promise<unknown> {
+    return this.request("PUT", "/api/okf/config", { body });
+  }
+
+  /**
+   * GET /api/okf/exports/{version}/download?artifact=log|manifest — fetch a TEXT
+   * artifact from a bundle. log.md is markdown; manifest is JSON text. The binary
+   * "bundle" zip is intentionally not exposed over MCP — the UI signed-URL download
+   * is the right channel for that.
+   */
+  getOkfArtifact(version: string, artifact: "log" | "manifest"): Promise<string> {
+    return this.requestText(
+      `/api/okf/exports/${encodeURIComponent(version)}/download`,
+      { artifact }
+    );
+  }
+
+  /** Like request() but returns raw response text (no JSON.parse) — for log.md / manifest. */
+  private async requestText(path: string, query?: Query): Promise<string> {
+    const url = new URL(this.cfg.baseUrl + path);
+    if (query) {
+      for (const [k, v] of Object.entries(query)) {
+        if (v !== undefined && v !== "") url.searchParams.set(k, String(v));
+      }
+    }
+    const doFetch = async () => fetch(url, { method: "GET", headers: { ...(await this.authHeaders()) } });
+    let res = await doFetch();
+    if (res.status === 401 && authMode(this.cfg) === "jwt") {
+      this.token = undefined;
+      await this.login();
+      res = await doFetch();
+    }
+    if (!res.ok) throw new CataamError(`GET ${path} → ${res.status}`, res.status, await safeText(res));
+    return res.text();
+  }
 }
 
 async function safeText(res: Response): Promise<string | undefined> {

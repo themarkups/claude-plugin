@@ -10,7 +10,7 @@
       "name": "cataam",
       "source": "./",
       "description": "MCP connector + compliance workflows for Cataam (SOC2, GDPR, ISO27001).",
-      "version": "0.1.0"
+      "version": "0.1.1"
     }
   ]
 }
