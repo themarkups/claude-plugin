@@ -608,7 +608,7 @@ export function registerTools(server: McpServer, client: CataamClient): void {
       description:
         "List the org's connected vendors — the natural source for Trust Center subprocessors. " +
         "Returns the vendor list. Map each relevant vendor to a subprocessor with add_subprocessor " +
-        "(check list_subprocessors first to avoid duplicates). Requires JWT auth.",
+        "(check list_subprocessors first to avoid duplicates). Requires an API key (trust-center scope) or JWT auth.",
       inputSchema: {
         page: z.number().int().min(0).optional().default(0).describe("Page number (default 0)."),
         size: z.number().int().min(1).max(200).optional().default(100).describe("Page size (default 100)."),
@@ -624,7 +624,7 @@ export function registerTools(server: McpServer, client: CataamClient): void {
       title: "List Trust Center subprocessors",
       description:
         "List the subprocessors already published on the org's Trust Center. Use before " +
-        "add_subprocessor to avoid duplicates. Requires JWT auth.",
+        "add_subprocessor to avoid duplicates. Requires an API key (trust-center scope) or JWT auth.",
       inputSchema: {},
     },
     async () => guard(() => client.listSubprocessors())
@@ -638,7 +638,7 @@ export function registerTools(server: McpServer, client: CataamClient): void {
       description:
         "Publish a subprocessor (a third party the org shares data with) on its public Trust Center " +
         "— typically created from a connected vendor (see list_vendors). MUTATES state; requires " +
-        "confirm=true. Returns the created subprocessor. Requires JWT auth.",
+        "confirm=true. Returns the created subprocessor. Requires an API key (trust-center scope) or JWT auth.",
       inputSchema: {
         name: z.string().min(1).describe("Subprocessor name, e.g. 'Amazon Web Services'."),
         category: z.string().optional().describe("e.g. 'Cloud infrastructure', 'Payments', 'Email'."),
@@ -668,7 +668,7 @@ export function registerTools(server: McpServer, client: CataamClient): void {
         "Upload a document (SOC 2 report, policy, pen-test letter) to the org's Trust Center from a " +
         "local file path. Gated documents require a visitor access request; public ones are directly " +
         "downloadable. MUTATES state; requires confirm=true. Returns { id, title, fileSize }. " +
-        "Requires JWT auth.",
+        "Requires an API key (trust-center scope) or JWT auth.",
       inputSchema: {
         filePath: z.string().min(1).describe("Absolute path to the local file to upload."),
         title: z.string().min(1).describe("Document title, e.g. 'SOC 2 Type II Report'."),
@@ -705,7 +705,7 @@ export function registerTools(server: McpServer, client: CataamClient): void {
         "skipping any that already exist (by name). Enriches known vendors (AWS, GCP, Jira, GitHub, …) " +
         "with a category + website. MUTATES state; requires confirm=true. Pass dryRun=true to PREVIEW " +
         "what would be created without writing (no confirm needed). Returns " +
-        "{ vendorsFound, created, skipped, errors }. Requires JWT auth.",
+        "{ vendorsFound, created, skipped, errors }. Requires an API key (trust-center scope) or JWT auth.",
       inputSchema: {
         showOnTrust: z.boolean().optional().default(true).describe("Show the created subprocessors on the public trust page."),
         dryRun: z.boolean().optional().default(false).describe("Preview only — list what would be created without writing."),
