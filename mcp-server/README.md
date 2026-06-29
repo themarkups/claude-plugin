@@ -65,3 +65,11 @@ See [`../README.md`](../README.md#mcp-tools).
 **OKF Context Engine (`/api/okf`).** Read: `get_okf_status`, `list_okf_exports`,
 `get_okf_artifact` (log.md / MANIFEST.json). Write (`confirm:true`): `generate_okf_export`,
 `configure_okf`, `pin_okf_export`, `resync_okf_git`.
+
+## Trust Center tools (v0.1.6) — JWT auth required
+
+`list_vendors`, `list_subprocessors`, `add_subprocessor`, `upload_trust_document` populate an org's
+public Trust Center. They call `/api/vendors` and `/api/trust-center/**`, which are **outside the
+X-API-Key scope** (`/api/audit`, `/api/okf`) — so they require **JWT auth**: set
+`CATAAM_USERNAME` / `CATAAM_PASSWORD` for an org admin with *Manage Trust Center*. Writes require
+`confirm=true`. `upload_trust_document` reads a local file path and posts it multipart.
