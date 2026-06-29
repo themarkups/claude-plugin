@@ -594,4 +594,104 @@ export function registerTools(server: McpServer, client: CataamClient): void {
       return guard(() => client.resyncOkf());
     }
   );
+
+  // ===== Trust Center authoring =====
+  // NOTE: these hit /api/vendors and /api/trust-center/** which are NOT covered by the X-API-Key
+  // scope (/api/audit, /api/okf). They require JWT auth — set CATAAM_USERNAME/CATAAM_PASSWORD
+  // (an org admin with Manage Trust Center). With API-key-only config they return 401/403.
+
+  // ---- LIST: connected vendors (the subprocessor source) ----------------
+  server.registerTool(
+    "list_vendors",
+    {
+      title: "List connected vendors",
+      description:
+        "List the org's connected vendors — the natural source for Trust Center subprocessors. " +
+        "Returns the vendor list. Map each relevant vendor to a subprocessor with add_subprocessor " +
+        "(check list_subprocessors first to avoid duplicates). Requires JWT auth.",
+      inputSchema: {
+        page: z.number().int().min(0).optional().default(0).describe("Page number (default 0)."),
+        size: z.number().int().min(1).max(200).optional().default(100).describe("Page size (default 100)."),
+      },
+    },
+    async ({ page, size }) => guard(() => client.listVendors(page, size))
+  );
+
+  // ---- LIST: existing trust-center subprocessors (de-dupe) --------------
+  server.registerTool(
+    "list_subprocessors",
+    {
+      title: "List Trust Center subprocessors",
+      description:
+        "List the subprocessors already published on the org's Trust Center. Use before " +
+        "add_subprocessor to avoid duplicates. Requires JWT auth.",
+      inputSchema: {},
+    },
+    async () => guard(() => client.listSubprocessors())
+  );
+
+  // ---- ACT: add a subprocessor -----------------------------------------
+  server.registerTool(
+    "add_subprocessor",
+    {
+      title: "Add a Trust Center subprocessor",
+      description:
+        "Publish a subprocessor (a third party the org shares data with) on its public Trust Center " +
+        "— typically created from a connected vendor (see list_vendors). MUTATES state; requires " +
+        "confirm=true. Returns the created subprocessor. Requires JWT auth.",
+      inputSchema: {
+        name: z.string().min(1).describe("Subprocessor name, e.g. 'Amazon Web Services'."),
+        category: z.string().optional().describe("e.g. 'Cloud infrastructure', 'Payments', 'Email'."),
+        region: z.string().optional().describe("Hosting / processing region(s)."),
+        purpose: z.string().optional().describe("What the subprocessor is used for."),
+        dataCategories: z.string().optional().describe("Categories of data shared with them."),
+        websiteUrl: z.string().optional().describe("Their privacy / trust / compliance URL."),
+        sortOrder: z.number().int().optional().default(0).describe("Display order (lower first)."),
+        showOnTrust: z.boolean().optional().default(true).describe("Show on the public trust page."),
+        confirm: CONFIRM,
+      },
+    },
+    async (p) => {
+      if (!p.confirm) return fail("Refused: add_subprocessor requires confirm=true. Confirm with the user first.");
+      auditLog("add_subprocessor", { name: p.name });
+      const { confirm, ...body } = p;
+      return guard(() => client.addSubprocessor(body));
+    }
+  );
+
+  // ---- ACT: upload a trust document ------------------------------------
+  server.registerTool(
+    "upload_trust_document",
+    {
+      title: "Upload a Trust Center document",
+      description:
+        "Upload a document (SOC 2 report, policy, pen-test letter) to the org's Trust Center from a " +
+        "local file path. Gated documents require a visitor access request; public ones are directly " +
+        "downloadable. MUTATES state; requires confirm=true. Returns { id, title, fileSize }. " +
+        "Requires JWT auth.",
+      inputSchema: {
+        filePath: z.string().min(1).describe("Absolute path to the local file to upload."),
+        title: z.string().min(1).describe("Document title, e.g. 'SOC 2 Type II Report'."),
+        category: z.string().optional().describe("e.g. 'Compliance', 'Policy', 'Security'."),
+        gated: z.boolean().optional().default(true).describe("Require an access request (default true)."),
+        showOnTrust: z.boolean().optional().default(true).describe("Show on the public trust page."),
+        sortOrder: z.number().int().optional().default(0).describe("Display order (lower first)."),
+        confirm: CONFIRM,
+      },
+    },
+    async (p) => {
+      if (!p.confirm) return fail("Refused: upload_trust_document requires confirm=true. Confirm with the user first.");
+      auditLog("upload_trust_document", { title: p.title, filePath: p.filePath });
+      return guard(() =>
+        client.uploadTrustDocument({
+          filePath: p.filePath,
+          title: p.title,
+          category: p.category,
+          gated: p.gated,
+          showOnTrust: p.showOnTrust,
+          sortOrder: p.sortOrder,
+        })
+      );
+    }
+  );
 }

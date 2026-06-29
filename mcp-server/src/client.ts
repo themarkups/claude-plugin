@@ -331,6 +331,69 @@ export class CataamClient {
     if (!res.ok) throw new CataamError(`GET ${path} → ${res.status}`, res.status, await safeText(res));
     return res.text();
   }
+
+  // ---- Trust Center + vendors (org-scoped; JWT auth only — NOT in the X-API-Key scope) ----
+
+  /** GET /api/vendors — the org's connected vendors (the natural subprocessor source). */
+  listVendors(page = 0, size = 100): Promise<unknown> {
+    return this.request("GET", "/api/vendors", { query: { page, size } });
+  }
+
+  /** GET /api/trust-center/subprocessors — subprocessors already on the org's trust page. */
+  listSubprocessors(): Promise<unknown> {
+    return this.request("GET", "/api/trust-center/subprocessors");
+  }
+
+  /** POST /api/trust-center/subprocessors — publish a subprocessor on the public trust page. */
+  addSubprocessor(body: Record<string, unknown>): Promise<unknown> {
+    return this.request("POST", "/api/trust-center/subprocessors", { body });
+  }
+
+  /** POST /api/trust-center/documents — multipart upload of a trust document from a local file. */
+  async uploadTrustDocument(args: {
+    filePath: string;
+    title: string;
+    category?: string;
+    gated?: boolean;
+    showOnTrust?: boolean;
+    sortOrder?: number;
+  }): Promise<unknown> {
+    const fs = await import("node:fs/promises");
+    const path = await import("node:path");
+    const bytes = await fs.readFile(args.filePath);
+    const fname = path.basename(args.filePath);
+    const build = (): FormData => {
+      const fd = new FormData();
+      fd.append("file", new Blob([bytes]), fname);
+      fd.append("title", args.title);
+      if (args.category) fd.append("category", args.category);
+      fd.append("gated", String(args.gated ?? true));
+      fd.append("showOnTrust", String(args.showOnTrust ?? true));
+      fd.append("sortOrder", String(args.sortOrder ?? 0));
+      return fd;
+    };
+    // Don't set Content-Type — fetch derives the multipart boundary from the FormData body.
+    const send = async () =>
+      fetch(`${this.cfg.baseUrl}/api/trust-center/documents`, {
+        method: "POST",
+        headers: { ...(await this.authHeaders()) },
+        body: build(),
+      });
+    let res = await send();
+    if (res.status === 401 && authMode(this.cfg) === "jwt") {
+      this.token = undefined;
+      res = await send();
+    }
+    if (!res.ok) {
+      throw new CataamError(
+        `POST /api/trust-center/documents → ${res.status}`,
+        res.status,
+        await safeText(res)
+      );
+    }
+    const text = await res.text();
+    return text ? JSON.parse(text) : undefined;
+  }
 }
 
 async function safeText(res: Response): Promise<string | undefined> {
