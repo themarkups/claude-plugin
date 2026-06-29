@@ -606,15 +606,23 @@ export function registerTools(server: McpServer, client: CataamClient): void {
     {
       title: "List connected vendors",
       description:
-        "List the org's connected vendors — the natural source for Trust Center subprocessors. " +
-        "Returns the vendor list. Map each relevant vendor to a subprocessor with add_subprocessor " +
-        "(check list_subprocessors first to avoid duplicates). Requires an API key (trust-center scope) or JWT auth.",
+        "List the org's vendors — the source for Trust Center subprocessors. Returns BOTH manually-" +
+        "added GRC vendors (/api/vendors) AND connected integrations (/api/vendors/connections: AWS, " +
+        "Azure, GitHub, Microsoft 365, Slack…). The connections set is what the Vendors UI shows and " +
+        "what populate_subprocessors_from_vendors uses. Requires an API key (trust-center scope) or JWT auth.",
       inputSchema: {
-        page: z.number().int().min(0).optional().default(0).describe("Page number (default 0)."),
-        size: z.number().int().min(1).max(200).optional().default(100).describe("Page size (default 100)."),
+        page: z.number().int().min(0).optional().default(0).describe("Page number for GRC vendors (default 0)."),
+        size: z.number().int().min(1).max(200).optional().default(100).describe("Page size for GRC vendors (default 100)."),
       },
     },
-    async ({ page, size }) => guard(() => client.listVendors(page, size))
+    async ({ page, size }) =>
+      guard(async () => {
+        const [manualVendors, connectedIntegrations] = await Promise.all([
+          client.listVendors(page, size).catch(() => []),
+          client.listVendorConnections().catch(() => []),
+        ]);
+        return { manualVendors, connectedIntegrations };
+      })
   );
 
   // ---- LIST: existing trust-center subprocessors (de-dupe) --------------

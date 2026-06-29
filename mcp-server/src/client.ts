@@ -334,9 +334,14 @@ export class CataamClient {
 
   // ---- Trust Center + vendors (org-scoped; JWT auth only — NOT in the X-API-Key scope) ----
 
-  /** GET /api/vendors — the org's connected vendors (the natural subprocessor source). */
+  /** GET /api/vendors — manually-added GRC vendors (a SUBSET of integrations). */
   listVendors(page = 0, size = 100): Promise<unknown> {
     return this.request("GET", "/api/vendors", { query: { page, size } });
+  }
+
+  /** GET /api/vendors/connections — connected integrations (AWS, Azure, GitHub, M365, Slack…). */
+  listVendorConnections(): Promise<unknown> {
+    return this.request("GET", "/api/vendors/connections");
   }
 
   /** GET /api/trust-center/subprocessors — subprocessors already on the org's trust page. */
@@ -402,62 +407,71 @@ export class CataamClient {
   async populateSubprocessorsFromVendors(
     opts: { showOnTrust?: boolean; dryRun?: boolean } = {}
   ): Promise<unknown> {
-    const ENRICH: Record<string, { category: string; region?: string; websiteUrl?: string }> = {
-      aws: { category: "Cloud infrastructure", region: "Multi-region", websiteUrl: "https://aws.amazon.com/compliance/" },
-      "amazon web services": { category: "Cloud infrastructure", region: "Multi-region", websiteUrl: "https://aws.amazon.com/compliance/" },
-      gcp: { category: "Cloud infrastructure", region: "Multi-region", websiteUrl: "https://cloud.google.com/security/compliance" },
-      "google cloud": { category: "Cloud infrastructure", region: "Multi-region", websiteUrl: "https://cloud.google.com/security/compliance" },
-      "google cloud platform": { category: "Cloud infrastructure", region: "Multi-region", websiteUrl: "https://cloud.google.com/security/compliance" },
-      azure: { category: "Cloud infrastructure", region: "Multi-region", websiteUrl: "https://learn.microsoft.com/azure/compliance/" },
-      jira: { category: "Issue tracking", websiteUrl: "https://www.atlassian.com/trust" },
-      atlassian: { category: "Issue tracking", websiteUrl: "https://www.atlassian.com/trust" },
-      github: { category: "Source control", websiteUrl: "https://github.com/security" },
-      stripe: { category: "Payments", websiteUrl: "https://stripe.com/privacy" },
-      twilio: { category: "Communications", websiteUrl: "https://www.twilio.com/legal/privacy" },
+    // Canonical map: any alias / connection-type → one canonical subprocessor identity. Using the
+    // canonical NAME also fixes dedupe — a connection typed "AWS" canonicalizes to "Amazon Web
+    // Services" and matches an existing subprocessor of that name (no duplicate).
+    const MAP: Record<string, { name: string; category: string; region?: string; websiteUrl?: string }> = {
+      aws: { name: "Amazon Web Services", category: "Cloud infrastructure", region: "Multi-region", websiteUrl: "https://aws.amazon.com/compliance/" },
+      "amazon web services": { name: "Amazon Web Services", category: "Cloud infrastructure", region: "Multi-region", websiteUrl: "https://aws.amazon.com/compliance/" },
+      azure: { name: "Microsoft Azure", category: "Cloud infrastructure", region: "Multi-region", websiteUrl: "https://azure.microsoft.com/en-us/explore/trust/" },
+      "microsoft azure": { name: "Microsoft Azure", category: "Cloud infrastructure", region: "Multi-region", websiteUrl: "https://azure.microsoft.com/en-us/explore/trust/" },
+      microsoft365: { name: "Microsoft 365", category: "Productivity & collaboration", websiteUrl: "https://www.microsoft.com/trust-center" },
+      m365: { name: "Microsoft 365", category: "Productivity & collaboration", websiteUrl: "https://www.microsoft.com/trust-center" },
+      "microsoft 365": { name: "Microsoft 365", category: "Productivity & collaboration", websiteUrl: "https://www.microsoft.com/trust-center" },
+      gcp: { name: "Google Cloud Platform", category: "Cloud infrastructure", region: "Multi-region", websiteUrl: "https://cloud.google.com/security/compliance" },
+      "google cloud platform": { name: "Google Cloud Platform", category: "Cloud infrastructure", region: "Multi-region", websiteUrl: "https://cloud.google.com/security/compliance" },
+      github: { name: "GitHub", category: "Source code management", websiteUrl: "https://github.com/security" },
+      slack: { name: "Slack", category: "Communication & collaboration", websiteUrl: "https://slack.com/trust/security" },
+      jira: { name: "Jira (Atlassian)", category: "Issue tracking", websiteUrl: "https://www.atlassian.com/trust" },
+      atlassian: { name: "Jira (Atlassian)", category: "Issue tracking", websiteUrl: "https://www.atlassian.com/trust" },
+      stripe: { name: "Stripe", category: "Payments", websiteUrl: "https://stripe.com/privacy" },
+      twilio: { name: "Twilio", category: "Communications", websiteUrl: "https://www.twilio.com/legal/privacy" },
+    };
+    const canon = (n: unknown) => {
+      const k = String(n ?? "").trim().toLowerCase();
+      const def = MAP[k];
+      return { key: def?.name.toLowerCase() ?? k, def };
     };
 
-    const raw = (await this.listVendors(0, 200)) as any;
-    const vendors: any[] = Array.isArray(raw) ? raw : (raw?.content ?? []);
+    // Source from BOTH connected integrations (the full set the UI shows) AND manual GRC vendors —
+    // /api/vendors alone misses Azure/M365/Slack (they live under /api/vendors/connections).
+    const conns = (await this.listVendorConnections().catch(() => [])) as any;
+    const connList: any[] = Array.isArray(conns) ? conns : conns?.content ?? [];
+    const gv = (await this.listVendors(0, 200).catch(() => [])) as any;
+    const gvList: any[] = Array.isArray(gv) ? gv : gv?.content ?? [];
+    const rawNames = [
+      ...connList.map((c) => (typeof c?.vendorType === "string" ? c.vendorType : c?.vendorType?.name ?? c?.name ?? "")),
+      ...gvList.map((v) => (typeof v?.vendorName === "string" ? v.vendorName : v?.vendorName?.displayName ?? v?.vendorName?.name ?? "")),
+    ].map((s) => String(s).trim()).filter(Boolean);
+
     const existing = ((await this.listSubprocessors()) as any[]) ?? [];
-    const seen = new Set(existing.map((s) => String(s?.name ?? "").trim().toLowerCase()));
+    const seen = new Set(existing.map((s) => canon(s?.name).key));
 
     const created: string[] = [];
     const skipped: string[] = [];
     const errors: { name: string; error: string }[] = [];
     let order = existing.length;
 
-    for (const v of vendors) {
-      const vn = v?.vendorName;
-      const name = (typeof vn === "string" ? vn : vn?.displayName ?? vn?.name ?? "").toString().trim();
-      if (!name) continue;
-      const key = name.toLowerCase();
-      if (seen.has(key)) {
-        skipped.push(name);
-        continue;
-      }
+    for (const raw of rawNames) {
+      const { key, def } = canon(raw);
+      if (seen.has(key)) { skipped.push(def?.name ?? raw); continue; }
       seen.add(key);
-      const e = ENRICH[key] ?? { category: "Third-party service" };
+      const name = def?.name ?? raw;
+      const category = def?.category ?? "Third-party service";
       const body: Record<string, unknown> = {
         name,
-        category: e.category,
-        region: e.region,
-        websiteUrl: e.websiteUrl,
-        purpose: `Connected ${e.category.toLowerCase()} integrated with the platform.`,
+        category,
+        region: def?.region,
+        websiteUrl: def?.websiteUrl,
+        purpose: `Connected ${category.toLowerCase()} integration.`,
         sortOrder: order++,
         showOnTrust: opts.showOnTrust ?? true,
       };
-      if (opts.dryRun) {
-        created.push(name);
-        continue;
-      }
-      try {
-        await this.addSubprocessor(body);
-        created.push(name);
-      } catch (err) {
-        errors.push({ name, error: (err as Error).message });
-      }
+      if (opts.dryRun) { created.push(name); continue; }
+      try { await this.addSubprocessor(body); created.push(name); }
+      catch (err) { errors.push({ name, error: (err as Error).message }); }
     }
-    return { vendorsFound: vendors.length, created, skipped, errors, dryRun: !!opts.dryRun };
+    return { vendorsFound: rawNames.length, created, skipped, errors, dryRun: !!opts.dryRun };
   }
 }
 
