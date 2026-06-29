@@ -3,7 +3,7 @@
  *
  * Two auth modes are supported (see README "Authentication"):
  *   1. API key   — `X-API-Key` header. Preferred long-term integration path.
- *                  Set CATAAM_API_KEY. (Backend supports it; UI provisioning is WIP.)
+ *                  Set CATAAM_API_KEY. Provision/revoke keys in the Cataam app: Settings → API Keys.
  *   2. JWT login — username/password exchanged at POST /api/login for a short-lived
  *                  bearer token. Works today. Set CATAAM_USERNAME + CATAAM_PASSWORD.
  *

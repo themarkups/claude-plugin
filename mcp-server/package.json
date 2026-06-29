@@ -1,7 +1,7 @@
 {
   "name": "cataam-mcp-server",
-  "version": "0.1.6",
-  "description": "MCP connector for Cataam — the GRC/compliance-automation platform (SOC2, GDPR, ISO27001). Exposes the /api/audit compliance surface and the OKF Context Engine as MCP tools.",
+  "version": "0.1.7",
+  "description": "MCP connector for Cataam \u2014 the GRC/compliance-automation platform (SOC2, GDPR, ISO27001). Exposes the /api/audit compliance surface and the OKF Context Engine as MCP tools.",
   "license": "MIT",
   "type": "module",
   "bin": {
@@ -9,7 +9,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "INSTALL.md"
   ],
   "repository": {
     "type": "git",
