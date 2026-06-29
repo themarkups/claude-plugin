@@ -394,6 +394,71 @@ export class CataamClient {
     const text = await res.text();
     return text ? JSON.parse(text) : undefined;
   }
+
+  /**
+   * Bulk: map every connected vendor to a Trust Center subprocessor, skipping any that already
+   * exist (by name). Enriches known vendors with a category/website. dryRun previews without writing.
+   */
+  async populateSubprocessorsFromVendors(
+    opts: { showOnTrust?: boolean; dryRun?: boolean } = {}
+  ): Promise<unknown> {
+    const ENRICH: Record<string, { category: string; region?: string; websiteUrl?: string }> = {
+      aws: { category: "Cloud infrastructure", region: "Multi-region", websiteUrl: "https://aws.amazon.com/compliance/" },
+      "amazon web services": { category: "Cloud infrastructure", region: "Multi-region", websiteUrl: "https://aws.amazon.com/compliance/" },
+      gcp: { category: "Cloud infrastructure", region: "Multi-region", websiteUrl: "https://cloud.google.com/security/compliance" },
+      "google cloud": { category: "Cloud infrastructure", region: "Multi-region", websiteUrl: "https://cloud.google.com/security/compliance" },
+      "google cloud platform": { category: "Cloud infrastructure", region: "Multi-region", websiteUrl: "https://cloud.google.com/security/compliance" },
+      azure: { category: "Cloud infrastructure", region: "Multi-region", websiteUrl: "https://learn.microsoft.com/azure/compliance/" },
+      jira: { category: "Issue tracking", websiteUrl: "https://www.atlassian.com/trust" },
+      atlassian: { category: "Issue tracking", websiteUrl: "https://www.atlassian.com/trust" },
+      github: { category: "Source control", websiteUrl: "https://github.com/security" },
+      stripe: { category: "Payments", websiteUrl: "https://stripe.com/privacy" },
+      twilio: { category: "Communications", websiteUrl: "https://www.twilio.com/legal/privacy" },
+    };
+
+    const raw = (await this.listVendors(0, 200)) as any;
+    const vendors: any[] = Array.isArray(raw) ? raw : (raw?.content ?? []);
+    const existing = ((await this.listSubprocessors()) as any[]) ?? [];
+    const seen = new Set(existing.map((s) => String(s?.name ?? "").trim().toLowerCase()));
+
+    const created: string[] = [];
+    const skipped: string[] = [];
+    const errors: { name: string; error: string }[] = [];
+    let order = existing.length;
+
+    for (const v of vendors) {
+      const vn = v?.vendorName;
+      const name = (typeof vn === "string" ? vn : vn?.displayName ?? vn?.name ?? "").toString().trim();
+      if (!name) continue;
+      const key = name.toLowerCase();
+      if (seen.has(key)) {
+        skipped.push(name);
+        continue;
+      }
+      seen.add(key);
+      const e = ENRICH[key] ?? { category: "Third-party service" };
+      const body: Record<string, unknown> = {
+        name,
+        category: e.category,
+        region: e.region,
+        websiteUrl: e.websiteUrl,
+        purpose: `Connected ${e.category.toLowerCase()} integrated with the platform.`,
+        sortOrder: order++,
+        showOnTrust: opts.showOnTrust ?? true,
+      };
+      if (opts.dryRun) {
+        created.push(name);
+        continue;
+      }
+      try {
+        await this.addSubprocessor(body);
+        created.push(name);
+      } catch (err) {
+        errors.push({ name, error: (err as Error).message });
+      }
+    }
+    return { vendorsFound: vendors.length, created, skipped, errors, dryRun: !!opts.dryRun };
+  }
 }
 
 async function safeText(res: Response): Promise<string | undefined> {

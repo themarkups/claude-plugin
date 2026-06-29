@@ -694,4 +694,30 @@ export function registerTools(server: McpServer, client: CataamClient): void {
       );
     }
   );
+
+  // ---- ACT: bulk-populate subprocessors from connected vendors ----------
+  server.registerTool(
+    "populate_subprocessors_from_vendors",
+    {
+      title: "Bulk-populate subprocessors from connected vendors",
+      description:
+        "One-shot: read the org's connected vendors and publish each as a Trust Center subprocessor, " +
+        "skipping any that already exist (by name). Enriches known vendors (AWS, GCP, Jira, GitHub, …) " +
+        "with a category + website. MUTATES state; requires confirm=true. Pass dryRun=true to PREVIEW " +
+        "what would be created without writing (no confirm needed). Returns " +
+        "{ vendorsFound, created, skipped, errors }. Requires JWT auth.",
+      inputSchema: {
+        showOnTrust: z.boolean().optional().default(true).describe("Show the created subprocessors on the public trust page."),
+        dryRun: z.boolean().optional().default(false).describe("Preview only — list what would be created without writing."),
+        confirm: CONFIRM,
+      },
+    },
+    async (p) => {
+      if (!p.dryRun && !p.confirm) {
+        return fail("Refused: populate_subprocessors_from_vendors requires confirm=true (or dryRun=true to preview). Confirm with the user first.");
+      }
+      auditLog("populate_subprocessors_from_vendors", { dryRun: p.dryRun, showOnTrust: p.showOnTrust });
+      return guard(() => client.populateSubprocessorsFromVendors({ showOnTrust: p.showOnTrust, dryRun: p.dryRun }));
+    }
+  );
 }
